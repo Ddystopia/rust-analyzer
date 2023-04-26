@@ -1557,10 +1557,21 @@ pub(crate) fn handle_semantic_tokens_range(
     Ok(Some(semantic_tokens.into()))
 }
 
-pub(crate) fn handle_open_docs(
+pub(crate) fn handle_open_external_docs(
     snap: GlobalStateSnapshot,
     params: lsp_types::TextDocumentPositionParams,
-) -> Result<(Option<lsp_types::Url>, Option<lsp_types::Url>)> {
+) -> Result<Option<lsp_types::Url>> {
+    let _p = profile::span("handle_open_docs");
+    let position = from_proto::file_position(&snap, params)?;
+
+    let remote = snap.analysis.external_docs(position)?;
+    Ok(remote.and_then(|it| Url::parse(&it).ok()))
+}
+
+pub(crate) fn handle_open_local_docs(
+    snap: GlobalStateSnapshot,
+    params: lsp_types::TextDocumentPositionParams,
+) -> Result<Option<lsp_types::Url>> {
     let _p = profile::span("handle_open_docs");
     let position = from_proto::file_position(&snap, params)?;
 
@@ -1568,14 +1579,11 @@ pub(crate) fn handle_open_docs(
         Some(ProjectWorkspace::Cargo { cargo, .. }) => Some(cargo),
         _ => None,
     };
-    let target_dir =
-        cargo.and_then(|cargo| Some(cargo.target_directory())).and_then(|p| Some(p.as_os_str()));
-    let Ok(remote_urls) = snap.analysis.external_docs(position, target_dir) else { return Ok((None, None)); };
+    let Some(cargo) = cargo else { return Ok(None); };
+    let target_dir = cargo.target_directory().as_os_str();
+    let remote = snap.analysis.local_docs(position, target_dir)?;
 
-    let web_url = remote_urls.web_url.and_then(|it| Url::parse(&it).ok());
-    let local_url = remote_urls.local_url.and_then(|it| Url::parse(&it).ok());
-
-    Ok((web_url, local_url))
+    Ok(remote.and_then(|it| Url::parse(&it).ok()))
 }
 
 pub(crate) fn handle_open_cargo_toml(

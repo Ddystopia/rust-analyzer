@@ -15,17 +15,16 @@ use crate::{
     fixture, TryToNav,
 };
 
-fn check_external_docs(
+fn check_remote_docs(
     ra_fixture: &str,
     target_dir: Option<&OsStr>,
     expect_web_url: Option<Expect>,
     expect_local_url: Option<Expect>,
 ) {
     let (analysis, position) = fixture::position(ra_fixture);
-    let links = analysis.external_docs(position, target_dir).unwrap();
 
-    let web_url = links.web_url;
-    let local_url = links.local_url;
+    let web_url = analysis.external_docs(position).unwrap();
+    let local_url = target_dir.and_then(|it| analysis.local_docs(position, it).unwrap());
 
     println!("web_url: {:?}", web_url);
     println!("local_url: {:?}", local_url);
@@ -121,7 +120,7 @@ fn node_to_def(
 
 #[test]
 fn external_docs_doc_builtin_type() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 let x: u3$02 = 0;
@@ -134,7 +133,7 @@ let x: u3$02 = 0;
 
 #[test]
 fn external_docs_doc_url_crate() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:main deps:foo
 use foo$0::Foo;
@@ -149,7 +148,7 @@ pub struct Foo;
 
 #[test]
 fn external_docs_doc_url_std_crate() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:std
 use self$0;
@@ -162,7 +161,7 @@ use self$0;
 
 #[test]
 fn external_docs_doc_url_struct() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub struct Fo$0o;
@@ -175,7 +174,7 @@ pub struct Fo$0o;
 
 #[test]
 fn external_docs_doc_url_windows_backslash_path() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub struct Fo$0o;
@@ -188,7 +187,7 @@ pub struct Fo$0o;
 
 #[test]
 fn external_docs_doc_url_windows_slash_path() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub struct Fo$0o;
@@ -201,7 +200,7 @@ pub struct Fo$0o;
 
 #[test]
 fn external_docs_doc_url_struct_field() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub struct Foo {
@@ -216,7 +215,7 @@ pub struct Foo {
 
 #[test]
 fn external_docs_doc_url_fn() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub fn fo$0o() {}
@@ -229,7 +228,7 @@ pub fn fo$0o() {}
 
 #[test]
 fn external_docs_doc_url_impl_assoc() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub struct Foo;
@@ -241,7 +240,7 @@ impl Foo {
         Some(expect![[r##"https://docs.rs/foo/*/foo/struct.Foo.html#method.method"##]]),
         None,
     );
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub struct Foo;
@@ -257,7 +256,7 @@ impl Foo {
 
 #[test]
 fn external_docs_doc_url_impl_trait_assoc() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub struct Foo;
@@ -272,7 +271,7 @@ impl Trait for Foo {
         Some(expect![[r##"https://docs.rs/foo/*/foo/struct.Foo.html#method.method"##]]),
         None,
     );
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub struct Foo;
@@ -287,7 +286,7 @@ impl Trait for Foo {
         Some(expect![[r##"https://docs.rs/foo/*/foo/struct.Foo.html#associatedconstant.CONST"##]]),
         None,
     );
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub struct Foo;
@@ -306,7 +305,7 @@ impl Trait for Foo {
 
 #[test]
 fn external_docs_doc_url_trait_assoc() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub trait Foo {
@@ -317,7 +316,7 @@ pub trait Foo {
         Some(expect![[r##"https://docs.rs/foo/*/foo/trait.Foo.html#tymethod.method"##]]),
         None,
     );
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub trait Foo {
@@ -328,7 +327,7 @@ pub trait Foo {
         Some(expect![[r##"https://docs.rs/foo/*/foo/trait.Foo.html#associatedconstant.CONST"##]]),
         None,
     );
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub trait Foo {
@@ -343,7 +342,7 @@ pub trait Foo {
 
 #[test]
 fn external_docs_trait() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 trait Trait$0 {}
@@ -356,7 +355,7 @@ trait Trait$0 {}
 
 #[test]
 fn external_docs_module() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub mod foo {
@@ -371,7 +370,7 @@ pub mod foo {
 
 #[test]
 fn external_docs_reexport_order() {
-    check_external_docs(
+    check_remote_docs(
         r#"
 //- /main.rs crate:foo
 pub mod wrapper {

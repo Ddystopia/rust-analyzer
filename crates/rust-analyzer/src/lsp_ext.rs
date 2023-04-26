@@ -474,8 +474,16 @@ pub enum ExternalDocs {}
 
 impl Request for ExternalDocs {
     type Params = lsp_types::TextDocumentPositionParams;
-    type Result = (Option<lsp_types::Url>, Option<lsp_types::Url>);
+    type Result = Option<lsp_types::Url>;
     const METHOD: &'static str = "experimental/externalDocs";
+}
+
+pub enum LocalDocs {}
+
+impl Request for LocalDocs {
+    type Params = lsp_types::TextDocumentPositionParams;
+    type Result = Option<lsp_types::Url>;
+    const METHOD: &'static str = "experimental/localDocs";
 }
 
 pub enum OpenCargoToml {}

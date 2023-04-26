@@ -1,5 +1,5 @@
 <!---
-lsp_ext.rs hash: a1e4d79b919f0f16
+lsp_ext.rs hash: 1d0efd1c3367c75
 
 If you need to change the above hash to make the test pass, please check if you
 need to adjust this doc as well and ping this issue:
@@ -392,7 +392,17 @@ This request is sent from client to server to get a web and local URL(s) to docu
 
 **Request:**: `TextDocumentPositionParams`
 
-**Response** `[string | null, string | null]`
+**Response** `string | null`
+
+## Open Local Documentation
+
+This request is sent from client to server to get a web and local URL(s) to documentation for the symbol under the cursor, if available.
+
+**Method** `experimental/localDocs`
+
+**Request:**: `TextDocumentPositionParams`
+
+**Response** `string | null`
 
 
 ## Analyzer Status

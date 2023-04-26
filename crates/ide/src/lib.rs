@@ -456,16 +456,24 @@ impl Analysis {
         self.with_db(|db| moniker::moniker(db, position))
     }
 
-    /// Returns URL(s) for the documentation of the symbol under the cursor.
-    /// # Arguments
-    /// * `position` - Position in the file.
-    /// * `target_dir` - Directory where the build output is storeda.
+    /// Returns URL for the external documentation of the symbol under the cursor.
     pub fn external_docs(
         &self,
         position: FilePosition,
-        target_dir: Option<&OsStr>,
-    ) -> Cancellable<doc_links::DocumentationLinks> {
-        self.with_db(|db| doc_links::external_docs(db, &position, target_dir))
+    ) -> Cancellable<doc_links::DocumentationLink> {
+        self.with_db(|db| doc_links::external_docs(db, &position))
+    }
+
+    /// Returns URL for the local documentation of the symbol under the cursor.
+    /// # Arguments
+    /// * `position` - Position in the file.
+    /// * `target_dir` - Directory where the build output is storeda.
+    pub fn local_docs(
+        &self,
+        position: FilePosition,
+        target_dir: &OsStr,
+    ) -> Cancellable<doc_links::DocumentationLink> {
+        self.with_db(|db| doc_links::local_docs(db, &position, target_dir))
     }
 
     /// Computes parameter information at the given position.

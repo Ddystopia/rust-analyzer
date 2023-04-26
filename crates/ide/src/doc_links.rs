@@ -31,15 +31,19 @@ use crate::{
     FilePosition, Semantics,
 };
 
+/// The URL to the documentation.
+/// May not lead anywhere.
+pub type DocumentationLink = Option<String>;
+
 /// Web and local links to an item's documentation.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct DocumentationLinks {
     /// The URL to the documentation on docs.rs.
     /// May not lead anywhere.
-    pub web_url: Option<String>,
+    pub web_url: DocumentationLink,
     /// The URL to the documentation in the local file system.
     /// May not lead anywhere.
-    pub local_url: Option<String>,
+    pub local_url: DocumentationLink,
 }
 
 const MARKDOWN_OPTIONS: Options =
@@ -117,9 +121,9 @@ pub(crate) fn remove_links(markdown: &str) -> String {
     out
 }
 
-// Feature: Open Docs
+// Feature: Open External Docs
 //
-// Retrieve a links to documentation for the given symbol.
+// Retrieve a web link to documentation for the given symbol.
 //
 // The simplest way to use this feature is via the context menu. Right-click on
 // the selected item. The context menu opens. Select **Open Docs**.
@@ -127,13 +131,35 @@ pub(crate) fn remove_links(markdown: &str) -> String {
 // |===
 // | Editor  | Action Name
 //
-// | VS Code | **rust-analyzer: Open Docs**
+// | VS Code | **rust-analyzer: Open External Docs**
 // |===
-pub(crate) fn external_docs(
+pub(crate) fn external_docs(db: &RootDatabase, position: &FilePosition) -> DocumentationLink {
+    let definition = get_definition(db, position);
+    definition.and_then(|definition| get_doc_links(db, definition, None).web_url)
+}
+
+// Feature: Open Local Docs
+//
+// Retrieve a local link to documentation for the given symbol.
+//
+// The simplest way to use this feature is via the context menu. Right-click on
+// the selected item. The context menu opens. Select **Open Docs**.
+//
+// |===
+// | Editor  | Action Name
+//
+// | VS Code | **rust-analyzer: Open Local Docs**
+// |===
+pub(crate) fn local_docs(
     db: &RootDatabase,
     position: &FilePosition,
-    target_dir: Option<&OsStr>,
-) -> DocumentationLinks {
+    target_dir: &OsStr,
+) -> DocumentationLink {
+    let definition = get_definition(db, position);
+    definition.and_then(|definition| get_doc_links(db, definition, Some(target_dir)).local_url)
+}
+
+fn get_definition(db: &RootDatabase, position: &FilePosition) -> Option<Definition> {
     let sema = &Semantics::new(db);
     let file = sema.parse(position.file_id).syntax().clone();
     let token = pick_best_token(file.token_at_offset(position.offset), |kind| match kind {
@@ -141,30 +167,26 @@ pub(crate) fn external_docs(
         T!['('] | T![')'] => 2,
         kind if kind.is_trivia() => 0,
         _ => 1,
-    });
-    let Some(token) = token else { return Default::default() };
+    })?;
     let token = sema.descend_into_macros_single(token);
 
-    let Some(node) = token.parent() else { return Default::default() };
+    let node = token.parent()?;
     let definition = match_ast! {
         match node {
-            ast::NameRef(name_ref) => match NameRefClass::classify(sema, &name_ref) {
-                Some(NameRefClass::Definition(def)) => def,
-                Some(NameRefClass::FieldShorthand { local_ref: _, field_ref }) => {
+            ast::NameRef(name_ref) => match NameRefClass::classify(sema, &name_ref)? {
+                NameRefClass::Definition(def) => def,
+                NameRefClass::FieldShorthand { local_ref: _, field_ref } => {
                     Definition::Field(field_ref)
                 }
-                None => return Default::default(),
             },
-            ast::Name(name) => match NameClass::classify(sema, &name) {
-                Some(NameClass::Definition(it) | NameClass::ConstReference(it)) => it,
-                Some(NameClass::PatFieldShorthand { local_def: _, field_ref }) => Definition::Field(field_ref),
-                None => return Default::default(),
+            ast::Name(name) => match NameClass::classify(sema, &name)? {
+                NameClass::Definition(it) | NameClass::ConstReference(it) => it,
+                NameClass::PatFieldShorthand { local_def: _, field_ref } => Definition::Field(field_ref),
             },
-            _ => return Default::default(),
+            _ => return None,
         }
     };
-
-    return get_doc_links(db, definition, target_dir);
+    Some(definition)
 }
 
 /// Extracts all links from a given markdown text returning the definition text range, link-text
